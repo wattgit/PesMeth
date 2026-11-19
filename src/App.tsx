@@ -837,24 +837,28 @@ export default function App() {
               </div>
               <div>
                 <div className="text-xs text-stone-500 flex items-center justify-between gap-2">
-                  <span>資料庫來源狀態</span>
-                  {(dataSourceMode === 'sheets-api' ||
-                    dataSourceMode === 'sheets-public') && (
-                    <button
-                      type="button"
-                      onClick={handleRefreshSync}
-                      disabled={isSyncing}
-                      className="text-[#1E3A8A] hover:underline inline-flex items-center gap-1"
-                    >
-                      <RefreshCw
-                        className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`}
-                      />
-                      <span>同步</span>
-                    </button>
-                  )}
+                  <span>{user && hasAccessToken ? '資料庫來源狀態' : '資料庫狀態'}</span>
+                  {user &&
+                    hasAccessToken &&
+                    (dataSourceMode === 'sheets-api' ||
+                      dataSourceMode === 'sheets-public') && (
+                      <button
+                        type="button"
+                        onClick={handleRefreshSync}
+                        disabled={isSyncing}
+                        className="text-[#1E3A8A] hover:underline inline-flex items-center gap-1 text-xs font-medium"
+                      >
+                        <RefreshCw
+                          className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`}
+                        />
+                        <span>同步</span>
+                      </button>
+                    )}
                 </div>
                 <div className="text-sm font-semibold text-stone-900 mt-1.5 truncate">
-                  {dataSourceLabel}
+                  {user && hasAccessToken
+                    ? dataSourceLabel
+                    : '雲端即時連線（最新期刊）'}
                 </div>
               </div>
             </div>
