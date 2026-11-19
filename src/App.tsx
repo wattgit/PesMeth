@@ -21,6 +21,7 @@ import {ArticleReaderModal} from './components/ArticleReaderModal';
 import {ConfirmActionModal} from './components/ConfirmActionModal';
 import {GoogleSignInButton} from './components/GoogleSignInButton';
 import {DrawerTab, SheetsCmsDrawer} from './components/SheetsCmsDrawer';
+import {updateDynamicFavicon} from './utils/dynamicFavicon';
 import {
   DEFAULT_PUBLIC_SHEET_ID,
   DEFAULT_PUBLIC_SHEET_TAB,
@@ -141,6 +142,10 @@ export default function App() {
       }
     }
   }, [loadPublicSheet]);
+
+  useEffect(() => {
+    updateDynamicFavicon(posts.length, dataSourceMode);
+  }, [posts.length, dataSourceMode]);
 
   // Deep-link hash support (#post=slug)
   useEffect(() => {
