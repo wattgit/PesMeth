@@ -1,0 +1,205 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-display: 'Fraunces', 'Noto Serif TC', Georgia, serif;
+    --font-sans: 'Plus Jakarta Sans', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #FBF9F5;
+    color: #1C1917;
+  }
+}
+
+.font-editorial {
+  font-family: var(--font-display);
+}
+
+.font-mono-tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Official Google Sign-In Material Button */
+.gsi-material-button {
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  -webkit-appearance: none;
+  background-color: #ffffff;
+  background-image: none;
+  border: 1px solid #747775;
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: #1f1f1f;
+  cursor: pointer;
+  font-family: 'Plus Jakarta Sans', 'Noto Sans TC', Arial, sans-serif;
+  font-size: 14px;
+  height: 40px;
+  letter-spacing: 0.25px;
+  outline: none;
+  overflow: hidden;
+  padding: 0 14px;
+  position: relative;
+  text-align: center;
+  transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+  vertical-align: middle;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gsi-material-button:hover {
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+
+.gsi-material-button:disabled {
+  cursor: default;
+  background-color: #ffffff61;
+  border-color: #1f1f1f1f;
+  opacity: 0.65;
+}
+
+.gsi-material-button .gsi-material-button-content-wrapper {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  height: 100%;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+  gap: 10px;
+}
+
+.gsi-material-button .gsi-material-button-icon {
+  height: 18px;
+  min-width: 18px;
+  width: 18px;
+}
+
+.gsi-material-button .gsi-material-button-contents {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Editorial Markdown Prose */
+.journal-prose {
+  color: #292524;
+  font-size: 1rem;
+  line-height: 1.85;
+}
+
+.journal-prose h1,
+.journal-prose h2,
+.journal-prose h3 {
+  font-family: var(--font-display);
+  color: #1C1917;
+  font-weight: 600;
+  margin-top: 1.75rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.35;
+}
+
+.journal-prose h2 {
+  font-size: 1.375rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #E7E5E4;
+}
+
+.journal-prose h3 {
+  font-size: 1.125rem;
+}
+
+.journal-prose p {
+  margin-bottom: 1.15rem;
+}
+
+.journal-prose ul,
+.journal-prose ol {
+  margin-bottom: 1.25rem;
+  padding-left: 1.5rem;
+}
+
+.journal-prose ul {
+  list-style-type: disc;
+}
+
+.journal-prose ol {
+  list-style-type: decimal;
+}
+
+.journal-prose li {
+  margin-bottom: 0.4rem;
+}
+
+.journal-prose blockquote {
+  margin: 1.5rem 0;
+  padding: 1rem 0;
+  border-top: 1px solid #D6D3D1;
+  border-bottom: 1px solid #D6D3D1;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.125rem;
+  color: #44403C;
+}
+
+.journal-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.journal-prose th {
+  text-align: left;
+  font-weight: 600;
+  color: #1C1917;
+  background-color: #F5F2EB;
+  border-bottom: 1px solid #D6D3D1;
+  padding: 0.65rem 0.85rem;
+}
+
+.journal-prose td {
+  border-bottom: 1px solid #E7E5E4;
+  padding: 0.65rem 0.85rem;
+  color: #44403C;
+}
+
+.journal-prose a {
+  color: #1E3A8A;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.journal-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background-color: #F5F2EB;
+  padding: 0.15rem 0.35rem;
+  border-radius: 3px;
+}
+
+.journal-prose pre {
+  background-color: #1C1917;
+  color: #F5F5F4;
+  padding: 1rem 1.25rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1.25rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.journal-prose pre code {
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+}

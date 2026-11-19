@@ -1,0 +1,6 @@
+{
+  "name": "PesMath 數學教學社群 | 期刊與知識專欄",
+  "description": "可部署於 GitHub Pages 的數學教學社群期刊與知識庫系統，整合 Google Sheets 即時資料庫存取、Markdown 全文閱讀與教學資源分類檢索。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
