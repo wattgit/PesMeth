@@ -12,9 +12,13 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 const provider = new GoogleAuthProvider();
-// Least-privilege Google Sheets scope for reading & managing journal spreadsheet database
-export const SHEETS_SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
-for (const scope of SHEETS_SCOPES) {
+// Combined Google Workspace scopes (Google Sheets database + Google Drive file upload)
+export const WORKSPACE_SCOPES = [
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/drive.file',
+];
+export const SHEETS_SCOPES = WORKSPACE_SCOPES;
+for (const scope of WORKSPACE_SCOPES) {
   provider.addScope(scope);
 }
 

@@ -73,6 +73,16 @@ export const ArticleReaderModal: React.FC<ArticleReaderModalProps> = ({
     return sanitizeHtml(raw);
   }, [post]);
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   if (!post) return null;
 
   const currentIdx = allPosts.findIndex((p) => p.slug === post.slug);
@@ -97,15 +107,21 @@ export const ArticleReaderModal: React.FC<ArticleReaderModalProps> = ({
     }
   };
 
+
+
   return (
     <div
-      className="fixed inset-0 z-40 overflow-y-auto bg-stone-950/50 backdrop-blur-xs"
+      className="fixed inset-0 z-40 overflow-y-auto bg-stone-950/50 backdrop-blur-xs flex justify-center p-4 sm:p-6 md:p-10"
       role="dialog"
       aria-modal="true"
       aria-labelledby="reader-article-title"
+      onClick={onClose}
     >
-      <div className="min-h-full px-4 py-6 sm:py-10 flex justify-center">
-        <article className="w-full max-w-4xl bg-[#FBF9F5] border border-stone-200 rounded-xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-4xl my-auto flex justify-center">
+        <article
+          className="w-full max-w-4xl bg-[#FBF9F5] border border-stone-200 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* Top Reader Utility Bar */}
           <div className="px-6 sm:px-10 py-4 bg-white border-b border-stone-200 flex items-center justify-between gap-4">
             <button

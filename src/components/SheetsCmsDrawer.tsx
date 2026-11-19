@@ -12,6 +12,7 @@ import {
   FolderGit2,
   LogOut,
   RefreshCw,
+  Image,
   Rss,
   Save,
   Sheet,
@@ -23,6 +24,9 @@ import {
   BUNDLED_SITE_CONFIG,
   saveSiteConfig,
 } from '../config/siteConfig';
+import {getAccessToken} from '../services/googleAuth';
+import {uploadImageToGoogleDrive} from '../services/driveUpload';
+import {RichFormatEditor} from './RichFormatEditor';
 import {ACADEMIC_YEAR_OPTIONS, CATEGORY_OPTIONS} from '../data/seedPosts';
 import {
   fetchRssFeedPosts,
@@ -182,6 +186,32 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
   );
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [saveStatusMsg, setSaveStatusMsg] = useState<string | null>(null);
+
+  // Cover image upload to Google Drive
+  const coverFileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [coverUploadMsg, setCoverUploadMsg] = useState<string | null>(null);
+
+  const handleUploadCoverToDrive = async (file: File) => {
+    const token = getAccessToken();
+    if (!token) {
+      alert('請先於連線分頁登入 Google 帳號，才能上傳至 Google Drive。');
+      return;
+    }
+    setIsUploadingCover(true);
+    setCoverUploadMsg('正在上傳至 Google Drive 並設定公開檢視...');
+    try {
+      const res = await uploadImageToGoogleDrive(file, token);
+      setFormState((prev) => ({...prev, coverImageUrl: res.directImageUrl}));
+      setCoverUploadMsg('封面圖已成功上傳並套用！');
+      setTimeout(() => setCoverUploadMsg(null), 4000);
+    } catch (err: any) {
+      alert(err?.message || '封面圖上傳至 Google Drive 失敗。');
+      setCoverUploadMsg(null);
+    } finally {
+      setIsUploadingCover(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -356,14 +386,28 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
       )
     : [];
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-40 overflow-hidden bg-stone-950/50 backdrop-blur-xs flex justify-end"
       role="dialog"
       aria-modal="true"
       aria-labelledby="cms-drawer-title"
+      onClick={onClose}
     >
-      <div className="w-full max-w-3xl bg-[#FBF9F5] border-l border-stone-200 h-full flex flex-col shadow-2xl">
+      <div
+        className="w-full max-w-3xl bg-[#FBF9F5] border-l border-stone-200 h-full flex flex-col shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Drawer Header */}
         <div className="px-6 py-4 bg-white border-b border-stone-200 flex items-center justify-between gap-4">
           <div>
@@ -931,18 +975,92 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
                     />
                   </div>
 
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-stone-700 mb-1">
-                      文章內文（支援 Markdown 語法與表格）
+                  {/* Article Cover Image (Google Drive upload + URL) */}
+                  <div className="sm:col-span-2 p-4 bg-[#F7F4EE] border border-stone-200 rounded-xl space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-semibold text-stone-900 flex items-center gap-1.5">
+                          <Image className="w-4 h-4 text-blue-600" />
+                          <span>文章封面圖片（支援上傳至 Google Drive）</span>
+                        </span>
+                        <p className="text-[11px] text-stone-500 mt-0.5">
+                          可直接選取電腦照片自動上傳至您的 Google 雲端硬碟，或貼上外部圖片網址。
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          ref={coverFileInputRef}
+                          accept="image/*"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleUploadCoverToDrive(f);
+                          }}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          disabled={isUploadingCover}
+                          onClick={() => coverFileInputRef.current?.click()}
+                          className="px-3 py-1.5 text-xs font-medium text-stone-800 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 inline-flex items-center gap-1.5 shadow-2xs whitespace-nowrap"
+                        >
+                          <Upload className="w-3.5 h-3.5 text-blue-600" />
+                          <span>{isUploadingCover ? '上傳至 Drive 中...' : '上傳封面至 Drive'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {coverUploadMsg && (
+                      <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
+                        {coverUploadMsg}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                      {formState.coverImageUrl ? (
+                        <div className="w-16 h-12 rounded-lg border border-stone-300 overflow-hidden shrink-0 bg-stone-100">
+                          <img
+                            src={formState.coverImageUrl}
+                            alt="封面預覽"
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-16 h-12 rounded-lg border border-dashed border-stone-300 flex items-center justify-center shrink-0 text-stone-400 bg-white">
+                          <Image className="w-5 h-5 text-stone-300" />
+                        </div>
+                      )}
+                      <input
+                        type="url"
+                        value={formState.coverImageUrl || ''}
+                        onChange={(e) =>
+                          setFormState({...formState, coverImageUrl: e.target.value})
+                        }
+                        placeholder="https://... 封面圖片網址（可由上方按鈕上傳 Drive 自動填入）"
+                        className="flex-1 px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* RichFormat Visual Article Editor */}
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <label className="block text-xs font-medium text-stone-700 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-semibold text-stone-900">文章內文 (RichFormat 富文本視覺化編輯器)</span>
+                        <span className="text-[11px] text-stone-500 font-normal">· 支援標題、清單、表格、Drive 圖檔上傳與物件內嵌</span>
+                      </span>
                     </label>
-                    <textarea
-                      rows={6}
+                    <RichFormatEditor
                       value={formState.content}
-                      onChange={(e) =>
-                        setFormState({...formState, content: e.target.value})
+                      onChange={(newContent) =>
+                        setFormState((prev) => ({...prev, content: newContent}))
                       }
-                      placeholder="## 會議重點&#10;&#10;1. 課堂實作觀察..."
-                      className="w-full px-3.5 py-2 text-sm font-mono-tabular border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                      accessToken={getAccessToken()}
+                      onSetCoverImage={(coverUrl) =>
+                        setFormState((prev) => ({...prev, coverImageUrl: coverUrl}))
+                      }
                     />
                   </div>
 

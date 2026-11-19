@@ -701,26 +701,7 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Only show management controls when teacher is logged in */}
-              {user && hasAccessToken && (
-                <div className="bg-[#FBF9F5] border border-stone-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0">
-                  <div className="text-xs">
-                    <div className="font-semibold text-stone-900">
-                      {user.displayName || user.email}
-                    </div>
-                    <div className="text-stone-500 mt-0.5">
-                      已啟用 Google Sheets 授權連線
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => openDrawer('editor')}
-                    className="px-3.5 py-2 text-xs font-medium text-white bg-[#1E3A8A] rounded-lg hover:bg-[#172554] transition-colors whitespace-nowrap shrink-0"
-                  >
-                    進入管理後台
-                  </button>
-                </div>
-              )}
+
             </div>
 
             {/* Lead Story Split (Tier 1 Editorial Salience) */}

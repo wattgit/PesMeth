@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {AlertTriangle, CheckCircle2, X} from 'lucide-react';
 import {ConfirmActionState} from '../types/journal';
 
@@ -25,14 +25,30 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !submitting) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, submitting]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/50 backdrop-blur-xs p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-modal-title"
+      onClick={() => {
+        if (!submitting) onClose();
+      }}
     >
-      <div className="w-full max-w-md bg-white border border-stone-200 rounded-xl shadow-xl overflow-hidden">
+      <div
+        className="w-full max-w-md bg-white border border-stone-200 rounded-xl shadow-xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-4 border-b border-stone-100">
           <div className="flex items-center gap-3">
             {state.isDestructive ? (
