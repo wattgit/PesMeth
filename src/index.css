@@ -178,6 +178,15 @@
   text-underline-offset: 3px;
 }
 
+.journal-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid #E7E5E4;
+  margin: 1.25rem auto;
+  display: block;
+}
+
 .journal-prose code {
   font-family: var(--font-mono);
   font-size: 0.85em;

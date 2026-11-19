@@ -343,6 +343,51 @@ export async function appendPostToSheet(
 }
 
 /**
+ * Batch appends multiple post rows to the connected Google Sheet in a single request.
+ */
+export async function batchAppendPostsToSheet(
+  spreadsheetId: string,
+  tabName: string,
+  posts: JournalPost[],
+  accessToken: string,
+): Promise<void> {
+  if (posts.length === 0) return;
+  const range = encodeURIComponent(`${escapeA1SheetName(tabName)}!A:M`);
+  const rows = posts.map((post) =>
+    postToRow({
+      ...post,
+      coverImageUrl:
+        post.coverImageUrl && post.coverImageUrl.startsWith('data:')
+          ? ''
+          : post.coverImageUrl,
+    }),
+  );
+
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(
+      spreadsheetId,
+    )}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        values: rows,
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(
+      errBody?.error?.message || `批次寫入 Google Sheet 失敗 (${res.status})`,
+    );
+  }
+}
+
+/**
  * Updates an existing post row (1-based rowIndex) in the connected Google Sheet.
  */
 export async function updatePostInSheet(

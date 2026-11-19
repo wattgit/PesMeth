@@ -11,12 +11,18 @@ import {
   FolderGit2,
   LogOut,
   RefreshCw,
+  Rss,
   Sheet,
   Trash2,
   Upload,
   X,
 } from 'lucide-react';
 import {ACADEMIC_YEAR_OPTIONS, CATEGORY_OPTIONS} from '../data/seedPosts';
+import {
+  fetchRssFeedPosts,
+  parseRssOrAtomXml,
+  RssImportResult,
+} from '../services/rssImporter';
 import {
   exportPostsAsCsv,
   exportPostsAsJson,
@@ -30,7 +36,7 @@ import {
 } from '../types/journal';
 import {GoogleSignInButton} from './GoogleSignInButton';
 
-export type DrawerTab = 'sheets' | 'editor' | 'architecture';
+export type DrawerTab = 'sheets' | 'editor' | 'rss' | 'architecture';
 
 interface SheetsCmsDrawerProps {
   isOpen: boolean;
@@ -60,6 +66,7 @@ interface SheetsCmsDrawerProps {
   onSavePost: (post: JournalPost, isNew: boolean) => void;
   onDeletePost: (post: JournalPost) => void;
   onImportJsonPosts: (posts: JournalPost[]) => void;
+  onBatchImportPosts: (posts: JournalPost[]) => void;
 }
 
 const EMPTY_FORM: JournalPost = {
@@ -135,6 +142,7 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
   onSavePost,
   onDeletePost,
   onImportJsonPosts,
+  onBatchImportPosts,
 }) => {
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab);
   const [sheetInput, setSheetInput] = useState('');
@@ -143,6 +151,18 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
   const [isNewPost, setIsNewPost] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+
+  // RSS / Blogger import state
+  const [rssUrl, setRssUrl] = useState(
+    'https://ximen-math.blogspot.com/feeds/posts/default?max-results=500',
+  );
+  const [rssXmlFallback, setRssXmlFallback] = useState('');
+  const [showXmlFallback, setShowXmlFallback] = useState(false);
+  const [isFetchingRss, setIsFetchingRss] = useState(false);
+  const [rssError, setRssError] = useState<string | null>(null);
+  const [rssResult, setRssResult] = useState<RssImportResult | null>(null);
+  const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
+  const [skipDuplicates, setSkipDuplicates] = useState(true);
 
   useEffect(() => {
     if (isOpen) {
@@ -231,6 +251,62 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
       )}`
     : '';
 
+  const existingSlugSet = new Set(posts.map((p) => p.slug));
+  const existingTitleSet = new Set(posts.map((p) => p.title.trim()));
+
+  const isDuplicatePost = (p: JournalPost) =>
+    existingSlugSet.has(p.slug) || existingTitleSet.has(p.title.trim());
+
+  const applyRssResult = (res: RssImportResult) => {
+    setRssResult(res);
+    const initialSelected = new Set<string>();
+    res.posts.forEach((p) => {
+      if (!skipDuplicates || !isDuplicatePost(p)) {
+        initialSelected.add(p.slug);
+      }
+    });
+    setSelectedSlugs(initialSelected);
+  };
+
+  const handleFetchRss = async () => {
+    setIsFetchingRss(true);
+    setRssError(null);
+    try {
+      const res = await fetchRssFeedPosts(rssUrl);
+      applyRssResult(res);
+    } catch (err: any) {
+      setRssError(err?.message || '讀取 RSS Feed 失敗。');
+    } finally {
+      setIsFetchingRss(false);
+    }
+  };
+
+  const handleParseXmlFallback = () => {
+    setRssError(null);
+    try {
+      const res = parseRssOrAtomXml(rssXmlFallback);
+      applyRssResult(res);
+    } catch (err: any) {
+      setRssError(err?.message || '解析 XML 內容失敗。');
+    }
+  };
+
+  const toggleSelectSlug = (slug: string) => {
+    setSelectedSlugs((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
+  };
+
+  const rssPostsToImport = rssResult
+    ? rssResult.posts.filter(
+        (p) =>
+          selectedSlugs.has(p.slug) && (!skipDuplicates || !isDuplicatePost(p)),
+      )
+    : [];
+
   return (
     <div
       className="fixed inset-0 z-40 overflow-hidden bg-stone-950/50 backdrop-blur-xs flex justify-end"
@@ -288,6 +364,19 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
           >
             <Edit3 className="w-3.5 h-3.5" />
             <span>文章管理 ({posts.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('rss')}
+            className={`px-3.5 py-2 text-xs font-medium rounded-lg inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
+              activeTab === 'rss'
+                ? 'bg-white text-stone-950 border border-stone-200 shadow-xs'
+                : 'text-stone-600 hover:text-stone-950'
+            }`}
+          >
+            <Rss className="w-3.5 h-3.5" />
+            <span>RSS / Blogger 匯入</span>
           </button>
 
           <button
@@ -870,6 +959,210 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
                   ))}
                 </div>
               </section>
+            </div>
+          )}
+
+          {activeTab === 'rss' && (
+            <div className="space-y-6">
+              <section className="bg-white border border-stone-200 rounded-xl p-6 space-y-4">
+                <div>
+                  <h3 className="font-editorial text-base font-semibold text-stone-900">
+                    從 Google Blogger / RSS Feed 批次匯入文章
+                  </h3>
+                  <p className="text-xs text-stone-600 mt-1 leading-relaxed">
+                    輸入舊版 Blogger Feed 網址（例如 <code className="font-mono-tabular bg-[#F7F4EE] px-1.5 py-0.5 rounded">https://ximen-math.blogspot.com/feeds/posts/default?max-results=500</code>），系統會自動解析學年度標籤、分類、內文圖片與雲端附件連結，無跨來源限制，可直接在 GitHub Pages 執行。
+                  </p>
+                </div>
+
+                {rssError && (
+                  <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-900 leading-relaxed">
+                    {rssError}
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row gap-2.5">
+                  <input
+                    type="url"
+                    value={rssUrl}
+                    onChange={(e) => setRssUrl(e.target.value)}
+                    placeholder="https://ximen-math.blogspot.com/feeds/posts/default?max-results=500"
+                    className="flex-1 px-3.5 py-2 text-sm font-mono-tabular bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleFetchRss}
+                    disabled={isFetchingRss || !rssUrl.trim()}
+                    className="px-4 py-2 text-xs font-medium text-white bg-[#1E3A8A] rounded-lg hover:bg-[#172554] disabled:bg-stone-400 inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+                  >
+                    <RefreshCw
+                      className={`w-3.5 h-3.5 ${
+                        isFetchingRss ? 'animate-spin' : ''
+                      }`}
+                    />
+                    <span>
+                      {isFetchingRss ? '抓取中...' : '抓取 RSS / Blogger 文章'}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowXmlFallback((v) => !v)}
+                    className="text-xs text-stone-500 hover:text-[#1E3A8A] underline underline-offset-2"
+                  >
+                    {showXmlFallback
+                      ? '隱藏 XML 原始碼匯入區'
+                      : '其他網站有 CORS 限制？改用貼上 RSS / Atom XML 原始碼'}
+                  </button>
+
+                  {showXmlFallback && (
+                    <div className="mt-3 space-y-2.5">
+                      <textarea
+                        rows={5}
+                        value={rssXmlFallback}
+                        onChange={(e) => setRssXmlFallback(e.target.value)}
+                        placeholder="在此貼上從瀏覽器複製的 <feed> 或 <rss> XML 完整內容..."
+                        className="w-full px-3.5 py-2 text-xs font-mono-tabular border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleParseXmlFallback}
+                        disabled={!rssXmlFallback.trim()}
+                        className="px-3.5 py-1.5 text-xs font-medium text-stone-800 bg-[#F7F4EE] border border-stone-300 rounded-lg hover:bg-stone-200/70 disabled:opacity-50"
+                      >
+                        解析 XML 內容
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {rssResult && (
+                <section className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+                  <div className="px-6 py-4 bg-[#F7F4EE] border-b border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-stone-900">
+                        {rssResult.feedTitle}
+                      </div>
+                      <div className="text-xs text-stone-500 mt-0.5 font-mono-tabular">
+                        共讀取 {rssResult.posts.length} 篇文章（來源總計 {rssResult.totalReported} 筆）· 已選取 {rssPostsToImport.length} 篇準備匯入
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="inline-flex items-center gap-1.5 text-xs text-stone-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={skipDuplicates}
+                          onChange={(e) => setSkipDuplicates(e.target.checked)}
+                          className="rounded border-stone-300 text-[#1E3A8A]"
+                        />
+                        <span>略過已存在文章</span>
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedSlugs.size === rssResult.posts.length) {
+                            setSelectedSlugs(new Set());
+                          } else {
+                            setSelectedSlugs(
+                              new Set(rssResult.posts.map((p) => p.slug)),
+                            );
+                          }
+                        }}
+                        className="text-xs font-medium text-[#1E3A8A] hover:underline whitespace-nowrap shrink-0"
+                      >
+                        {selectedSlugs.size === rssResult.posts.length
+                          ? '全部取消'
+                          : '全選'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {dataSourceMode !== 'sheets-api' && (
+                    <div className="px-6 py-3 bg-amber-50/70 border-b border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-950">
+                      <span>
+                        若要直接批次寫入 Google Sheet，請先於「Google Sheets 連線」分頁登入並以 **API 讀寫連線** 連結您的試算表；若直接匯入則僅於目前頁面預覽。
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('sheets')}
+                        className="font-medium underline underline-offset-2 whitespace-nowrap shrink-0 text-left"
+                      >
+                        前往 API 讀寫連線
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="max-h-80 overflow-y-auto divide-y divide-stone-100">
+                    {rssResult.posts.map((p) => {
+                      const dup = isDuplicatePost(p);
+                      const checked =
+                        selectedSlugs.has(p.slug) && !(skipDuplicates && dup);
+                      return (
+                        <label
+                          key={p.slug}
+                          className={`px-6 py-3 flex items-start gap-3 cursor-pointer hover:bg-[#FBF9F5] transition-colors ${
+                            skipDuplicates && dup ? 'opacity-50' : ''
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={skipDuplicates && dup}
+                            onChange={() => toggleSelectSlug(p.slug)}
+                            className="mt-1 rounded border-stone-300 text-[#1E3A8A]"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-stone-900 truncate">
+                              {p.title}
+                            </div>
+                            <div className="text-xs text-stone-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                              <span className="font-mono-tabular">
+                                {p.academicYear}
+                              </span>
+                              <span>·</span>
+                              <span>{p.category}</span>
+                              <span>·</span>
+                              <span className="font-mono-tabular">
+                                {p.publishedAt}
+                              </span>
+                              {dup && (
+                                <>
+                                  <span>·</span>
+                                  <span className="text-amber-800 font-medium">
+                                    已存在於目前資料中
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  <div className="px-6 py-4 bg-[#F7F4EE] border-t border-stone-200 flex items-center justify-between gap-4">
+                    <span className="text-xs text-stone-600">
+                      {dataSourceMode === 'sheets-api'
+                        ? `將批次新增至試算表「${sheetMeta?.title}」`
+                        : '將匯入至目前頁面預覽（可再匯出 JSON/CSV）'}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={rssPostsToImport.length === 0 || isSyncing}
+                      onClick={() => onBatchImportPosts(rssPostsToImport)}
+                      className="px-4 py-2 text-xs font-medium text-white bg-[#1E3A8A] rounded-lg hover:bg-[#172554] disabled:bg-stone-400 transition-colors whitespace-nowrap shrink-0"
+                    >
+                      {dataSourceMode === 'sheets-api'
+                        ? `批次寫入 Google Sheet (${rssPostsToImport.length} 篇)`
+                        : `匯入選取文章 (${rssPostsToImport.length} 篇)`}
+                    </button>
+                  </div>
+                </section>
+              )}
             </div>
           )}
 

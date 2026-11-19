@@ -34,6 +34,7 @@ import {
 } from './services/googleAuth';
 import {
   appendPostToSheet,
+  batchAppendPostsToSheet,
   createAndSeedJournalSheet,
   deletePostFromSheet,
   fetchPostsFromPublicGviz,
@@ -224,6 +225,23 @@ export default function App() {
       if (result) {
         setUser(result.user);
         setHasAccessToken(true);
+        const targetId = publicSheetId || DEFAULT_PUBLIC_SHEET_ID;
+        if (targetId && dataSourceMode !== 'sheets-api') {
+          try {
+            const meta = await fetchSpreadsheetMeta(targetId, result.accessToken);
+            const fetched = await fetchPostsFromSheetsApi(
+              meta.spreadsheetId,
+              meta.activeTab,
+              result.accessToken,
+            );
+            setSheetMeta(meta);
+            setPosts(fetched);
+            setPublicSheetId(meta.spreadsheetId);
+            setDataSourceMode('sheets-api');
+          } catch {
+            // Keep existing view if signed-in account lacks permission on the public sheet
+          }
+        }
       }
     } catch (err: any) {
       setSyncError(err?.message || 'Google 登入授權失敗，請再試一次。');
@@ -481,6 +499,62 @@ export default function App() {
         }
       },
     });
+  };
+
+  const handleBatchImportPosts = (importedPosts: JournalPost[]) => {
+    if (importedPosts.length === 0) return;
+
+    if (dataSourceMode === 'sheets-api' && sheetMeta) {
+      const token = getAccessToken();
+      if (!token) {
+        setSyncError('授權工作階段已過期，請重新登入 Google。');
+        return;
+      }
+
+      setConfirmState({
+        isOpen: true,
+        title: `確認批次匯入 ${importedPosts.length} 篇文章至 Google Sheet？`,
+        description: `即將把從 RSS / Blogger 選取的文章附加至試算表「${sheetMeta.title}」的「${sheetMeta.activeTab}」分頁。`,
+        details: [
+          `匯入文章數量：${importedPosts.length} 篇`,
+          `首篇範例：${importedPosts[0].title}`,
+        ],
+        confirmLabel: `確認寫入 ${importedPosts.length} 篇文章`,
+        isDestructive: false,
+        onConfirm: async () => {
+          setIsSyncing(true);
+          setSyncError(null);
+          try {
+            await batchAppendPostsToSheet(
+              sheetMeta.spreadsheetId,
+              sheetMeta.activeTab,
+              importedPosts,
+              token,
+            );
+            const refreshed = await fetchPostsFromSheetsApi(
+              sheetMeta.spreadsheetId,
+              sheetMeta.activeTab,
+              token,
+            );
+            setPosts(refreshed);
+          } catch (err: any) {
+            setSyncError(err?.message || '批次寫入 Google Sheet 失敗。');
+          } finally {
+            setIsSyncing(false);
+          }
+        },
+      });
+    } else {
+      setPosts((prev) => {
+        const existingSlugs = new Set(prev.map((p) => p.slug));
+        const uniqueIncoming = importedPosts.filter(
+          (p) => !existingSlugs.has(p.slug),
+        );
+        return [...uniqueIncoming, ...prev];
+      });
+      setDataSourceMode('local-json');
+      setIsDrawerOpen(false);
+    }
   };
 
   const openDrawer = (tab: DrawerTab, postToEdit: JournalPost | null = null) => {
@@ -1075,6 +1149,7 @@ export default function App() {
           setDataSourceMode('local-json');
           setSheetMeta(null);
         }}
+        onBatchImportPosts={handleBatchImportPosts}
       />
 
       {/* Mandatory Explicit Confirmation Dialog for Mutating / Destructive Operations */}
