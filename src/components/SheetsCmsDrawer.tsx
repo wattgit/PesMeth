@@ -234,6 +234,17 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
     }
   }, [sheetMeta, publicSheetId]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const activeSpreadsheetId = sheetMeta?.spreadsheetId || publicSheetId;
@@ -385,16 +396,6 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
           selectedSlugs.has(p.slug) && (!skipDuplicates || !isDuplicatePost(p)),
       )
     : [];
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
 
   return (
     <div

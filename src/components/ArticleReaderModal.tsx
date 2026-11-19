@@ -74,6 +74,7 @@ export const ArticleReaderModal: React.FC<ArticleReaderModalProps> = ({
   }, [post]);
 
   React.useEffect(() => {
+    if (!post) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
@@ -81,7 +82,7 @@ export const ArticleReaderModal: React.FC<ArticleReaderModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [post, onClose]);
 
   if (!post) return null;
 

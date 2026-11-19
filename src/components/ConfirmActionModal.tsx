@@ -13,6 +13,17 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
 }) => {
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (!state?.isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !submitting) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state?.isOpen, onClose, submitting]);
+
   if (!state || !state.isOpen) return null;
 
   const handleConfirm = async () => {
@@ -24,16 +35,6 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
       setSubmitting(false);
     }
   };
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !submitting) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, submitting]);
 
   return (
     <div
