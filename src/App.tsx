@@ -558,6 +558,10 @@ export default function App() {
   };
 
   const openDrawer = (tab: DrawerTab, postToEdit: JournalPost | null = null) => {
+    if (!user || !hasAccessToken) {
+      handleSignIn();
+      return;
+    }
     setDrawerInitialTab(tab);
     setEditingPost(postToEdit);
     setIsDrawerOpen(true);
@@ -626,6 +630,17 @@ export default function App() {
             <button
               type="button"
               onClick={() => {
+                setSelectedCategory('學力檢測');
+                setViewMode('grid');
+                scrollToSection('journal-catalog');
+              }}
+              className="hover:text-stone-950 hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
+            >
+              學力檢測
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 setSelectedCategory('全部分類');
                 setViewMode('list');
                 scrollToSection('journal-catalog');
@@ -634,24 +649,37 @@ export default function App() {
             >
               年度彙編
             </button>
-            <button
-              type="button"
-              onClick={() => openDrawer('sheets')}
-              className="hover:text-stone-950 hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
-            >
-              資料庫連線
-            </button>
           </nav>
 
           {/* Zone 3: 1 Primary CTA */}
           <div className="flex items-center shrink-0">
-            <button
-              type="button"
-              onClick={() => openDrawer('sheets')}
-              className="px-4 py-2 text-xs font-medium text-white bg-[#1E3A8A] rounded-lg hover:bg-[#172554] transition-colors whitespace-nowrap shrink-0"
-            >
-              管理與連線
-            </button>
+            {user && hasAccessToken ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openDrawer('editor')}
+                  className="px-3.5 py-1.5 text-xs font-medium text-white bg-[#1E3A8A] rounded-lg hover:bg-[#172554] transition-colors whitespace-nowrap shrink-0"
+                >
+                  管理後台
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="px-2.5 py-1.5 text-xs font-medium text-stone-600 hover:text-stone-900 transition-colors whitespace-nowrap shrink-0"
+                >
+                  登出
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSignIn}
+                disabled={isSigningIn}
+                className="px-3.5 py-1.5 text-xs font-medium text-stone-700 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 transition-colors whitespace-nowrap shrink-0"
+              >
+                {isSigningIn ? '登入中...' : '教師登入'}
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -673,39 +701,26 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Workspace Authentication & Quick Sheets Sync Box (Outside Header per Top Bar Contract) */}
-              <div className="bg-[#FBF9F5] border border-stone-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0">
-                {user && hasAccessToken ? (
-                  <>
-                    <div className="text-xs">
-                      <div className="font-semibold text-stone-900">
-                        {user.displayName || user.email}
-                      </div>
-                      <div className="text-stone-500 mt-0.5">
-                        已啟用 Google Sheets 授權連線
-                      </div>
+              {/* Only show management controls when teacher is logged in */}
+              {user && hasAccessToken && (
+                <div className="bg-[#FBF9F5] border border-stone-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0">
+                  <div className="text-xs">
+                    <div className="font-semibold text-stone-900">
+                      {user.displayName || user.email}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => openDrawer('editor')}
-                      className="px-3.5 py-2 text-xs font-medium text-white bg-[#1E3A8A] rounded-lg hover:bg-[#172554] transition-colors whitespace-nowrap shrink-0"
-                    >
-                      新增 / 編輯文章
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-xs text-stone-600 max-w-[220px]">
-                      登入 Google 帳號即可建立或即時編輯 Google Sheets 資料庫
+                    <div className="text-stone-500 mt-0.5">
+                      已啟用 Google Sheets 授權連線
                     </div>
-                    <GoogleSignInButton
-                      onClick={handleSignIn}
-                      disabled={isSigningIn}
-                      label={isSigningIn ? '授權中...' : 'Sign in with Google'}
-                    />
-                  </>
-                )}
-              </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openDrawer('editor')}
+                    className="px-3.5 py-2 text-xs font-medium text-white bg-[#1E3A8A] rounded-lg hover:bg-[#172554] transition-colors whitespace-nowrap shrink-0"
+                  >
+                    進入管理後台
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Lead Story Split (Tier 1 Editorial Salience) */}
@@ -863,15 +878,17 @@ export default function App() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <label className="inline-flex items-center gap-2 text-xs font-medium text-stone-600 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includeDrafts}
-                    onChange={(e) => setIncludeDrafts(e.target.checked)}
-                    className="rounded border-stone-300 text-[#1E3A8A] focus:ring-[#1E3A8A]"
-                  />
-                  <span>顯示草稿</span>
-                </label>
+                {user && hasAccessToken && (
+                  <label className="inline-flex items-center gap-2 text-xs font-medium text-stone-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeDrafts}
+                      onChange={(e) => setIncludeDrafts(e.target.checked)}
+                      className="rounded border-stone-300 text-[#1E3A8A] focus:ring-[#1E3A8A]"
+                    />
+                    <span>顯示草稿</span>
+                  </label>
+                )}
 
                 <div className="flex items-center gap-1 p-1 bg-[#F7F4EE] border border-stone-200 rounded-lg">
                   <button
@@ -1077,21 +1094,34 @@ export default function App() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-4">
-            <button
-              type="button"
-              onClick={() => openDrawer('sheets')}
-              className="inline-flex items-center gap-1.5 text-stone-700 hover:text-[#1E3A8A] font-medium"
-            >
-              <Sheet className="w-3.5 h-3.5" />
-              <span>Google Sheets 連線設定</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => openDrawer('architecture')}
-              className="text-stone-700 hover:text-[#1E3A8A] font-medium"
-            >
-              GitHub Pages 部署指南
-            </button>
+            {user && hasAccessToken ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => openDrawer('sheets')}
+                  className="inline-flex items-center gap-1.5 text-stone-700 hover:text-[#1E3A8A] font-medium"
+                >
+                  <Sheet className="w-3.5 h-3.5" />
+                  <span>管理後台與連線設定</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="text-stone-500 hover:text-stone-900"
+                >
+                  登出
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSignIn}
+                disabled={isSigningIn}
+                className="text-stone-600 hover:text-[#1E3A8A] font-medium transition-colors"
+              >
+                {isSigningIn ? '登入中...' : '社群教師登入'}
+              </button>
+            )}
           </div>
         </div>
       </footer>
@@ -1100,7 +1130,7 @@ export default function App() {
       <ArticleReaderModal
         post={activePost}
         allPosts={filteredPosts}
-        canEdit={true}
+        canEdit={Boolean(user && hasAccessToken)}
         onClose={() => {
           setActivePost(null);
           if (window.location.hash.startsWith('#post=')) {

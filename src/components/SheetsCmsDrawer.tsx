@@ -8,15 +8,21 @@ import {
   Edit3,
   ExternalLink,
   FilePlus2,
+  FileText,
   FolderGit2,
   LogOut,
   RefreshCw,
   Rss,
+  Save,
   Sheet,
   Trash2,
   Upload,
   X,
 } from 'lucide-react';
+import {
+  BUNDLED_SITE_CONFIG,
+  saveSiteConfig,
+} from '../config/siteConfig';
 import {ACADEMIC_YEAR_OPTIONS, CATEGORY_OPTIONS} from '../data/seedPosts';
 import {
   fetchRssFeedPosts,
@@ -104,6 +110,9 @@ jobs:
           node-version: "24"
       - run: npm install --legacy-peer-deps
       - run: npm run build
+        env:
+          VITE_DEFAULT_SHEET_ID: \${{ vars.VITE_DEFAULT_SHEET_ID }}
+          VITE_DEFAULT_SHEET_TAB: \${{ vars.VITE_DEFAULT_SHEET_TAB }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
@@ -163,6 +172,16 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
   const [rssResult, setRssResult] = useState<RssImportResult | null>(null);
   const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
   const [skipDuplicates, setSkipDuplicates] = useState(true);
+
+  // site-config.json Git config state
+  const [currentConfigId, setCurrentConfigId] = useState<string>(
+    BUNDLED_SITE_CONFIG.spreadsheetId,
+  );
+  const [currentConfigTab, setCurrentConfigTab] = useState<string>(
+    BUNDLED_SITE_CONFIG.tabName,
+  );
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [saveStatusMsg, setSaveStatusMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -228,6 +247,36 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleSaveToSiteConfig = async () => {
+    const targetId =
+      activeSpreadsheetId || extractSpreadsheetId(sheetInput);
+    if (!targetId) return;
+    const targetTab =
+      sheetMeta?.activeTab || publicTabInput.trim() || currentConfigTab || 'Posts';
+
+    setIsSavingConfig(true);
+    setSaveStatusMsg(null);
+    const result = await saveSiteConfig(targetId, targetTab);
+    setIsSavingConfig(false);
+    if (result.success) {
+      setCurrentConfigId(targetId);
+      setCurrentConfigTab(targetTab);
+      setSaveStatusMsg(result.message);
+      setTimeout(() => setSaveStatusMsg(null), 6000);
+    }
+  };
+
+  const handleDownloadSiteConfig = () => {
+    const targetId =
+      activeSpreadsheetId || extractSpreadsheetId(sheetInput) || currentConfigId;
+    const targetTab =
+      sheetMeta?.activeTab || publicTabInput.trim() || currentConfigTab || 'Posts';
+    const jsonStr =
+      JSON.stringify({spreadsheetId: targetId, tabName: targetTab}, null, 2) +
+      '\n';
+    downloadFile(jsonStr, 'site-config.json', 'application/json');
   };
 
   const handleSubmitForm = (e: React.FormEvent) => {
@@ -641,6 +690,68 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
                       </button>
                     </div>
                   )}
+                </div>
+              </section>
+
+              {/* Section 03: Save as Site Default Config (site-config.json) */}
+              <section className="bg-white border border-stone-200 rounded-xl p-6 space-y-4">
+                <div>
+                  <h3 className="font-editorial text-base font-semibold text-stone-900 flex items-center gap-2">
+                    <FolderGit2 className="w-4 h-4 text-[#1E3A8A]" />
+                    <span>03. 全站預設資料庫設定（Git 部署一氣呵成）</span>
+                  </h3>
+                  <p className="text-xs text-stone-600 mt-1 leading-relaxed">
+                    設定直接儲存在專案最外層的 <code className="font-mono-tabular bg-[#F7F4EE] px-1.5 py-0.5 rounded text-stone-900 font-semibold">site-config.json</code>，納入 Git 倉庫版本控制。在 AI Studio 一鍵更新後，直接 Push 部署至 GitHub Pages 即會自動載入此試算表，無需至 GitHub 手動設定 Variables！
+                  </p>
+                </div>
+
+                <div className="p-4 bg-[#F7F4EE] border border-stone-200 rounded-lg space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="text-stone-500 block mb-0.5">目前專案預設試算表 ID：</span>
+                      <code className="font-mono-tabular font-semibold text-stone-900 bg-white px-2 py-1 rounded border border-stone-200 block truncate">
+                        {currentConfigId || '尚未設定'}
+                      </code>
+                    </div>
+                    <div>
+                      <span className="text-stone-500 block mb-0.5">預設工作表分頁：</span>
+                      <code className="font-mono-tabular font-semibold text-stone-900 bg-white px-2 py-1 rounded border border-stone-200 block truncate">
+                        {currentConfigTab || 'Posts'}
+                      </code>
+                    </div>
+                  </div>
+
+                  {saveStatusMsg && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 flex items-center gap-2">
+                      <Check className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>{saveStatusMsg}</span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleSaveToSiteConfig}
+                      disabled={isSavingConfig || (!activeSpreadsheetId && !sheetInput.trim())}
+                      className="px-4 py-2 text-xs font-medium text-white bg-[#1E3A8A] rounded-lg hover:bg-[#172554] disabled:bg-stone-300 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shadow-xs"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>
+                        {isSavingConfig
+                          ? '正在寫入 site-config.json...'
+                          : '將目前連線試算表設為全站預設（更新 site-config.json）'}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadSiteConfig}
+                      className="px-3 py-2 text-xs font-medium text-stone-700 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 inline-flex items-center gap-1.5 whitespace-nowrap"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>下載 site-config.json 備份</span>
+                    </button>
+                  </div>
                 </div>
               </section>
             </div>
@@ -1294,6 +1405,55 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
                 )}
               </section>
 
+              {/* Site Config & GitHub Pages Deployment Strategy */}
+              <section className="bg-white border border-stone-200 rounded-xl p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <FolderGit2 className="w-4 h-4 text-[#1E3A8A]" />
+                  <h3 className="font-editorial text-base font-semibold text-stone-900">
+                    全站試算表綁定與部署機制（推薦：site-config.json 一氣呵成）
+                  </h3>
+                </div>
+
+                <div className="space-y-3 text-xs text-stone-700 leading-relaxed">
+                  <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-lg space-y-2">
+                    <strong className="text-emerald-950 font-semibold block text-sm">
+                      ✅ 方案 A（推薦）：直接透過 site-config.json 納入 Git 版控（免去 GitHub 手動設定）
+                    </strong>
+                    <p className="text-emerald-900">
+                      設定檔位於專案最外層的 <code className="font-mono-tabular bg-white px-1.5 py-0.5 rounded border border-emerald-200 font-semibold">site-config.json</code>。您只需在「Google Sheets 連線」分頁點擊<strong>「將目前連線試算表設為全站預設」</strong>，系統就會自動更新該檔案。接著在 AI Studio 按下 Commit & Push，部署至 GitHub Pages 時 Actions 會自動建置並發布，<strong>一氣呵成，完全不需開啟 GitHub 網站手動設定 Variables</strong>！
+                    </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="text-emerald-800">目前預設 ID：</span>
+                      <code className="bg-white border border-emerald-200 px-2 py-0.5 rounded font-mono-tabular font-semibold text-emerald-950">
+                        {currentConfigId || '1TYrCzrvZgxwd9nxygksgpUOSJVRb1L3aXCxtDIo4_4E'}
+                      </code>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-[#F7F4EE] border border-stone-200 rounded-lg space-y-2">
+                    <strong className="text-stone-900 font-semibold block">
+                      方案 B（進階備用）：GitHub Actions Repository Variables
+                    </strong>
+                    <p className="text-stone-600">
+                      若未來希望在不推送任何 Git Commit 的情況下臨時切換試算表來源，才需至 GitHub 倉庫後台設定環境變數覆蓋：
+                    </p>
+                    <div>1. 前往 GitHub Repository → <strong>Settings → Secrets and variables → Actions → Variables</strong></div>
+                    <div>2. 點擊 <strong>New repository variable</strong></div>
+                    <div className="flex items-center gap-2">
+                      <span>• 變數名稱：</span>
+                      <code className="bg-white border border-stone-300 px-2 py-0.5 rounded font-mono-tabular font-semibold">VITE_DEFAULT_SHEET_ID</code>
+                      <button
+                        type="button"
+                        onClick={() => copyText('VITE_DEFAULT_SHEET_ID', 'var_name')}
+                        className="text-[#1E3A8A] hover:underline"
+                      >
+                        {copiedId === 'var_name' ? '已複製' : '複製名稱'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
               {/* GitHub Pages Deployment Workflow */}
               <section className="bg-white border border-stone-200 rounded-xl p-6 space-y-3">
                 <div className="flex items-center justify-between gap-4">
@@ -1321,6 +1481,29 @@ export const SheetsCmsDrawer: React.FC<SheetsCmsDrawerProps> = ({
                 <pre className="p-4 rounded-lg bg-stone-900 text-stone-100 text-xs font-mono-tabular overflow-x-auto leading-relaxed">
                   {GITHUB_ACTIONS_YML}
                 </pre>
+              </section>
+
+              {/* Handover & Client Documentation Guide */}
+              <section className="bg-white border border-stone-200 rounded-xl p-6 space-y-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-[#1E3A8A]" />
+                  <h3 className="font-editorial text-base font-semibold text-stone-900">
+                    專案交付與操作手冊文檔（已收錄於專案根目錄）
+                  </h3>
+                </div>
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  為方便客戶自主承接與維護，專案根目錄已整理好完整的客戶交付操作手冊與技術文檔：
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                  <div className="p-3.5 bg-[#F7F4EE] border border-stone-200 rounded-lg space-y-1">
+                    <strong className="text-stone-900 block font-semibold">📄 CLIENT_HANDOVER_GUIDE.md</strong>
+                    <p className="text-stone-600">客戶自主上線 6 大步驟檢查清單、GitHub 授權避坑說明與 Firebase 網域教學。</p>
+                  </div>
+                  <div className="p-3.5 bg-[#F7F4EE] border border-stone-200 rounded-lg space-y-1">
+                    <strong className="text-stone-900 block font-semibold">📘 README.md</strong>
+                    <p className="text-stone-600">全系統架構運作邏輯、GViz API 公開唯讀機制與 Sheets API CRUD 說明。</p>
+                  </div>
+                </div>
               </section>
             </div>
           )}

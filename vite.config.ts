@@ -28,6 +28,67 @@ export default defineConfig(() => {
           }
         },
       },
+      // Dev middleware allowing developers in AI Studio to update site-config.json
+      // with a single click in the UI before committing/deploying.
+      {
+        name: 'site-config-api',
+        configureServer(server) {
+          server.middlewares.use('/api/save-site-config', (req, res) => {
+            if (req.method !== 'POST') {
+              res.statusCode = 405;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({error: 'Method Not Allowed'}));
+              return;
+            }
+
+            let body = '';
+            req.on('data', (chunk) => {
+              body += chunk;
+            });
+            req.on('end', () => {
+              try {
+                const parsed = JSON.parse(body || '{}');
+                const spreadsheetId = (parsed.spreadsheetId || '').trim();
+                const tabName = (parsed.tabName || 'Posts').trim();
+
+                if (!spreadsheetId) {
+                  res.statusCode = 400;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({error: 'Missing spreadsheetId'}));
+                  return;
+                }
+
+                const targetPath = path.resolve(__dirname, 'site-config.json');
+                const content =
+                  JSON.stringify(
+                    {
+                      spreadsheetId,
+                      tabName: tabName || 'Posts',
+                    },
+                    null,
+                    2,
+                  ) + '\n';
+
+                fs.writeFileSync(targetPath, content, 'utf-8');
+
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(
+                  JSON.stringify({
+                    success: true,
+                    spreadsheetId,
+                    tabName: tabName || 'Posts',
+                  }),
+                );
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({error: err?.message || 'Failed to save'}));
+              }
+            });
+          });
+        },
+      },
     ],
     resolve: {
       alias: {
